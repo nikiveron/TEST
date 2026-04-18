@@ -1,30 +1,33 @@
-using Confluent.Kafka;
-using System.Text.Json;
-
-public class KafkaNotificationSender : INotificationSender
+public class KafkaConsumerService : BackgroundService
 {
-    private readonly IProducer<string, string> _producer;
-    private readonly string _topic;
+    private readonly IConfiguration _configuration;
 
-    public KafkaNotificationSender(IConfiguration configuration)
+    public KafkaConsumerService(IConfiguration configuration)
     {
-        var config = new ProducerConfig
-        {
-            BootstrapServers = configuration["Kafka:BootstrapServers"]
-        };
-
-        _producer = new ProducerBuilder<string, string>(config).Build();
-        _topic = configuration["Kafka:Topic"];
+        _configuration = configuration;
     }
 
-    public async Task SendAsync(LinkUpdateDto update, CancellationToken cancellationToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var message = new Message<string, string>
+        var config = new ConsumerConfig
         {
-            Key = update.ChatId.ToString(),
-            Value = JsonSerializer.Serialize(update)
+            BootstrapServers = _configuration["Kafka:BootstrapServers"],
+            GroupId = "bot-consumer-group",
+            AutoOffsetReset = AutoOffsetReset.Earliest
         };
 
-        await _producer.ProduceAsync(_topic, message, cancellationToken);
+        var consumer = new ConsumerBuilder<string, string>(config).Build();
+        consumer.Subscribe(_configuration["Kafka:Topic"]);
+
+        return Task.Run(() =>
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                var result = consumer.Consume(stoppingToken);
+                var update = JsonSerializer.Deserialize<LinkUpdateDto>(result.Message.Value);
+
+                // вызываешь свою бизнес-логику отправки уведомления
+            }
+        }, stoppingToken);
     }
 }
