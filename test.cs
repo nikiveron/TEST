@@ -1,40 +1,18 @@
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-    networks:
-      - linktracker-network
-
-  kafka-1:
+  kafka-init:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka-1
     depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      - kafka-1
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: >
+      "
+      kafka-topics --create
+      --topic link-updates
+      --bootstrap-server kafka-1:9092
+      --replication-factor 3
+      --partitions 3
+      "
     networks:
-      - linktracker-network
-
-  kafka-2:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka-2
-    depends_on:
-      - zookeeper
-    ports:
-      - "9093:9093"
-    environment:
-      KAFKA_BROKER_ID: 2
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-    networks:
-      - linktracker-network
+      - linktracker-network      - linktracker-network
 
   kafka-3:
     image: confluentinc/cp-kafka:7.5.0
